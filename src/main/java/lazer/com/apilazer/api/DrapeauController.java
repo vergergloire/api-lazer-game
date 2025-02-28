@@ -19,31 +19,49 @@ public class DrapeauController {
     private boolean gameStarted = false;
     private long gameStartTime = 0;
 
+    /**
+     * 📌 Capture du drapeau par une équipe
+     */
     @PostMapping("/capture")
     public ResponseEntity<String> captureDrapeau(@RequestBody Capture capture) {
-        System.out.println("🛰️ Capture reçue : Équipe " + capture.getTeam() + " - Temps tenu : " + capture.getTimeHeld() + " ms");
+        if (!gameStarted) {
+            gameStarted = true;
+            gameStartTime = System.currentTimeMillis();
+        }
+
+        long now = System.currentTimeMillis();
+        long timeHeld = capture.getTimeHeld();
+
+        System.out.println("🛰️ Capture reçue : Équipe " + capture.getTeam() + " - Temps tenu : " + timeHeld + " ms");
 
         if (capture.getTeam() == 1) {
-            teamRedTime.addAndGet(capture.getTimeHeld());
+            teamRedTime.addAndGet(timeHeld);
         } else if (capture.getTeam() == 2) {
-            teamBlueTime.addAndGet(capture.getTimeHeld());
+            teamBlueTime.addAndGet(timeHeld);
+        } else {
+            return ResponseEntity.badRequest().body("❌ Équipe invalide !");
         }
 
         System.out.println("📊 Score mis à jour : Rouge = " + teamRedTime.get() + " ms, Bleue = " + teamBlueTime.get() + " ms");
-
         return ResponseEntity.ok("✅ Capture enregistrée !");
     }
 
-
+    /**
+     * 📌 Mise à jour du score et du temps restant
+     */
     @PostMapping("/status")
     public ResponseEntity<String> updateGameStatus(@RequestBody Map<String, Long> status) {
         teamRedTime.set(status.get("redTime"));
         teamBlueTime.set(status.get("blueTime"));
         timeRemaining.set(status.get("timeRemaining"));
 
-        return ResponseEntity.ok("🔄 Score mis à jour !");
+        System.out.println("🔄 Score mis à jour : Rouge = " + teamRedTime.get() + " ms, Bleue = " + teamBlueTime.get() + " ms, Temps restant = " + timeRemaining.get() + " ms");
+        return ResponseEntity.ok("✅ Score mis à jour !");
     }
 
+    /**
+     * 📌 Récupération du score en temps réel et du vainqueur
+     */
     @GetMapping("/status")
     public ResponseEntity<Map<String, Object>> getGameStatus() {
         long remainingTime = Math.max(0, 120000 - (System.currentTimeMillis() - gameStartTime));
@@ -57,7 +75,7 @@ public class DrapeauController {
         } else if (blueTime > redTime) {
             winner = "bleue";
         } else {
-            winner = null;
+            winner = null; // Égalité
         }
 
         Map<String, Object> status = new HashMap<>();
@@ -69,6 +87,18 @@ public class DrapeauController {
         return ResponseEntity.ok(status);
     }
 
+    /**
+     * 📌 Fin de la partie et enregistrement du vainqueur
+     */
+    @PostMapping("/winner")
+    public ResponseEntity<String> declareWinner(@RequestBody Map<String, String> body) {
+        System.out.println("🏆 Partie terminée ! Résultat final : " + body.get("message"));
+        return ResponseEntity.ok("✅ Résultat reçu !");
+    }
+
+    /**
+     * 📌 Réinitialisation du jeu
+     */
     @PostMapping("/reset")
     public ResponseEntity<String> resetGame() {
         teamRedTime.set(0);
@@ -77,6 +107,7 @@ public class DrapeauController {
         gameStarted = false;
         gameStartTime = System.currentTimeMillis();
 
+        System.out.println("🔄 Partie réinitialisée !");
         return ResponseEntity.ok("🔄 Partie réinitialisée !");
     }
 }
